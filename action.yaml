@@ -1,0 +1,97 @@
+name: Build TechDocs
+
+inputs:
+  backstage-techdocs-bucket-name:
+    required: true
+
+runs:
+  using: "composite"
+
+  steps:
+    - name: Check and Create Registry ECR
+      shell: bash
+      env:
+        BACKSTAGE_TECHDOCS_BUCKET_NAME: ${{ inputs.backstage-techdocs-bucket-name }}
+      run: |
+        #!/bin/bash
+
+        # Variáveis necessárias
+        [[ -z $BACKSTAGE_TECHDOCS_BUCKET_NAME ]] && echo "ERROR: Required environment variable BACKSTAGE_TECHDOCS_BUCKET_NAME not set" && exit 1
+        [[ -z $AWS_REGION ]] && echo "ERROR: Required environment variable AWS_REGION not set" && exit 1
+
+        # Local Vars
+        mkdocs_path_prefix=""
+        docs_dir="${PWD##*/}";docs_dir="${docs_dir:-/}"
+
+        # Seta os valores default para os arquivos metadata e mkdocs
+        [[ -z $metadata ]] && metadata="metadata.yaml"
+        [[ -z $mkdocs ]] && mkdocs="mkdocs.yaml"
+        # Trata a extensão dos arquivos yaml
+        [[ -f "metadata.yml" ]] && cp metadata.yml metadata.yaml
+        [[ -f "mkdocs.yml" ]] && cp mkdocs.yml mkdocs.yaml
+
+        # Define o caminho do site TechDocs caso o arquivo mkdocs.yaml não esteja na raiz
+        #   Do  contrário, essa variável ficará vazia
+        techdocs_path_prefix=${mkdocs/mkdocs.*/}
+
+        # Verifica a existência do arquivo obrigatório metadata.yaml
+        [[ ! -f $metadata ]] && echo "ERROR: Required file metadata.yaml not found." && exit 1
+
+        # Carrega as variáveis necessárias a partir do arquivo metadata.yaml
+        echo "Reading metadata file.."
+        application_name="$(yq '.application.name' ${metadata})"
+        application_type="$(yq '.application.type' ${metadata})"
+        backstage_namespace="default"
+
+        case ${application_type,,} in
+          "workload")
+            backstage_kind="component"
+            ;;
+          "api")
+            backstage_kind="api"
+            ;;
+          *)
+            echo "ERROR: Application type unknown. Must be one either \"workload\" or \"api\""
+            exit 1
+            ;;
+        esac
+
+        set -x
+        # Caso o arquivo mkdocs.yaml não esteja configurado, iremos gerar uma TechDocs default contendo apenas o README do projeto
+        #   A raiz do repositório será equivalente à pasta ./docs
+        #   O arquivo mkdocs.yaml ficará numa pasta pai relativa à pasta docs
+        if [[ ! -f "${mkdocs}" ]]; then
+          mkdocs_path_prefix="../"
+          echo "TechDocs not found. Building one from scratch.."
+          mkdir -pv ${mkdocs_path_prefix}docs
+          # Atenção à tabulação quando for indentar o EOF!
+          cat <<-EOF > ${mkdocs_path_prefix}${mkdocs}
+          site_name: "${application_name}"
+          docs_dir: docs
+          nav:
+            - README: 'README.md'
+          plugins:
+            - techdocs-core
+          EOF
+
+          # Se não houver um README no projeto, criaremos um vazio
+          [[ ! -f README.md ]] && echo "README.md not found on project root directory. Creating an empty one.." && printf "# ${application_name}\n\nEsse projeto ainda não possui um README." > README.md
+          #cp README.md index.md
+          cp README.md ${mkdocs_path_prefix}docs/
+        fi
+
+        mkdocs build -d techdocs-site -f "${mkdocs_path_prefix}${mkdocs}"
+
+        echo "Attempting to upload ${application_type} TechDocs.."
+        aws s3 sync --only-show-errors "${techdocs_path_prefix}${mkdocs_path_prefix}techdocs-site/" s3://${BACKSTAGE_TECHDOCS_BUCKET_NAME,,}/${backstage_namespace}/${backstage_kind,,}/${application_name,,}
+        if [ -d "docs/" ]; then
+          aws s3 sync --only-show-errors docs/ s3://${BACKSTAGE_TECHDOCS_BUCKET_NAME,,}/${backstage_namespace}/${backstage_kind,,}/${application_name,,}
+        fi
+        [[ $? -eq 0 ]] && echo "TechDocs successfully uploaded!"
+
+        # Se o Kind for API, publica a mesma documentação para o componente -- que possui o mesmo nome
+        if [[ "${backstage_kind,,}" == "api" ]]; then
+          echo "Attempting to upload workload TechDocs.."
+          aws s3 sync --only-show-errors "${techdocs_path_prefix}${mkdocs_path_prefix}techdocs-site/" s3://${BACKSTAGE_TECHDOCS_BUCKET_NAME,,}/${backstage_namespace,,}/component/${application_name,,}
+          [[ $? -eq 0 ]] && echo "TechDocs successfully uploaded!"
+        fi
