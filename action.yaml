@@ -78,8 +78,12 @@ runs:
 
           # Se não houver um README no projeto, criaremos um vazio
           [[ ! -f README.md ]] && echo "README.md not found on project root directory. Creating an empty one.." && printf "# ${application_name}\n\nEsse projeto ainda não possui um README." > README.md
-          #cp README.md index.md
+          # cp README.md index.md
           cp README.md ${mkdocs_path_prefix}docs/
+        fi
+
+        if [ -d "assets/" ]; then
+          cp -r assets/ ${mkdocs_path_prefix}docs/
         fi
 
         mkdocs build -d techdocs-site -f "${mkdocs_path_prefix}${mkdocs}"
