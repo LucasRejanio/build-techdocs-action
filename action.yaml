@@ -66,12 +66,12 @@ runs:
           mkdir -pv ${mkdocs_path_prefix}docs
           # Atenção à tabulação quando for indentar o EOF!
           cat <<-EOF > ${mkdocs_path_prefix}${mkdocs}
-          site_name: "${application_name}"
-          docs_dir: docs
-          nav:
-            - README: 'README.md'
-          plugins:
-            - techdocs-core
+            site_name: "${application_name}"
+            docs_dir: docs
+            nav:
+              - README: 'README.md'
+            plugins:
+              - techdocs-core
           EOF
 
           # Se não houver um README no projeto, criaremos um vazio
