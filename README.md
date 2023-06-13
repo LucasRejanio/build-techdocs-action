@@ -1,4 +1,4 @@
-<img src="assets/book-logo.png" width="100">
+<img src="assets/book-logo.png" width="130">
 
 # Build TechDocs Action
 
