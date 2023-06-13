@@ -1,0 +1,13 @@
+application:
+  name: build-techdocs-action
+  description: >
+    Action responsible for building and uploading documentation in mkdocs format in an s3 bucket to be consumed by Backstage.
+  type: workload
+  owner: delivery-platform
+  language: shell
+  version: 1.0.0
+
+catalog:
+  lifecycle: production
+  definition:
+    type: library
