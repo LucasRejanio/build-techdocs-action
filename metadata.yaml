@@ -10,4 +10,4 @@ application:
 catalog:
   lifecycle: production
   definition:
-    type: library
+    type: worker
