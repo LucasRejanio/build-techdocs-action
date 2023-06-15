@@ -5,6 +5,7 @@ application:
   type: workload
   owner: delivery-platform
   language: shell
+  framework: github-action
   version: 1.0.0
 
 catalog:
