@@ -10,8 +10,9 @@ on:
 permissions:
   id-token: write
   contents: write
+  actions: write
 
 jobs:
   workflow:
-    uses: will-bank/backstage-catalog-software-workflow/.github/workflows/backstage-catalog-software.yml@v0.3.0    
+    uses: will-bank/backstage-catalog-software-workflow/.github/workflows/backstage-catalog-software.yml@v1.0.0
     secrets: inherit
